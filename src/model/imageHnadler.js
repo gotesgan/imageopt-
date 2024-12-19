@@ -7,7 +7,8 @@ const prisma = new PrismaClient();
 
 // Function to handle image upload and log the file name
 const getImage = async (req, res) => {
-	const userId = Number(req.params.id); // Ensure userId is treated as an integer
+	const id = (req.params.id)
+	const userId = id; // Ensure userId is treated as an integer
 	const image = req.file;
 
 	// Step 1: Verify if the user exists in the database
@@ -21,75 +22,111 @@ const getImage = async (req, res) => {
 		return res.status(404).json({ message: "User not found" });
 	}
 
-	// Step 2: Find the folder associated with the user
+	// Step 2: Define the user folder structure
 	const userFolderPath = path.join(
 		process.cwd(),
 		"public",
 		"images",
 		"users",
-		`${user.id}` // Use user.id directly (integer type)
+		`${user.id}`
 	);
 
-	// Check if the folder exists, create it if it doesn't
-	if (!fs.existsSync(userFolderPath)) {
-		fs.mkdirSync(userFolderPath, { recursive: true });
+	const originalFolderPath = path.join(userFolderPath, "original");
+
+	// Ensure the folders exist
+	if (!fs.existsSync(originalFolderPath)) {
+		fs.mkdirSync(originalFolderPath, { recursive: true });
 	}
 
-	// Step 3: Move the uploaded image to the user's folder
-	const newImagePath = path.join(userFolderPath, image.filename);
+	// Step 3: Create a unique filename and move the uploaded image
+	const uniqueFileName = `${Date.now()}-${image.originalname}`;
+	const newImagePath = path.join(originalFolderPath, uniqueFileName);
 
-	// Step 4: Rename the file to move it to the correct folder
 	fs.renameSync(image.path, newImagePath);
 
-	// Step 5: Send a response with only the image filename
+	// Step 4: Save the image reference in the database
+	await prisma.Image.create({
+		data: {
+			fileName: uniqueFileName,
+			filePath: newImagePath,
+			userId: user.id,
+		},
+	});
+
+	// Step 5: Send a response with the image details
 	res.status(200).json({
 		message: "Image uploaded successfully",
-		filename: image.filename, // Only sending the filename
+		filename: uniqueFileName,
 	});
 };
 
 const sendImage = async (req, res) => {
 	const { id, fileName } = req.params; // Extract user id and fileName from URL parameters
-	const { h, w, f } = req.query; // Extract height, width, and format from query parameters
+	const { h, w, f, q } = req.query; // Extract height, width, format, and quality from query parameters
 
-	// Build the file path based on the user id and fileName
-	const filePath = path.join(
+	// Original file path
+	const originalFilePath = path.join(
 		process.cwd(),
 		"public",
 		"images",
 		"users",
-		`${id}`, // Ensure id is used as an integer (it's already stringified in the path)
+		`${id}`,
+		"original",
 		fileName
 	);
 
-	// Check if the file exists
-	if (!fs.existsSync(filePath)) {
-		return res.status(404).json({ message: "File not found" });
-	}
-
-	// If no query parameters (h, w, f), send the original file
-	if (!h && !w && !f) {
-		return res.sendFile(filePath);
-	}
-
-	// Validate query parameters
+	// Parse transformation parameters
 	const width = w ? parseInt(w, 10) : null;
 	const height = h ? parseInt(h, 10) : null;
-	const format = f || path.extname(fileName).slice(1).toLowerCase(); // Default to file extension format
+	const format = f || path.extname(fileName).slice(1).toLowerCase();
+	const quality = q ? parseInt(q, 10) : null;
+
+	// Transformed file path
+	const transformedFileName = `${path.basename(
+		fileName,
+		path.extname(fileName)
+	)}_${w || "auto"}x${h || "auto"}_${f || "original"}_q${
+		q || "default"
+	}.${format}`;
+
+	const transformedPath = path.join(
+		process.cwd(),
+		"public",
+		"images",
+		"users",
+		`${id}`,
+		"transformed",
+		transformedFileName
+	);
 
 	try {
-		// Set caching headers for performance optimization
-		res.setHeader("Cache-Control", "public, max-age=31536000"); // Cache for 1 year
+		// Check if the transformed image already exists
+		if (await fs.promises.stat(transformedPath).catch(() => false)) {
+			return res.sendFile(transformedPath);
+		}
 
-		// Apply Sharp optimizations: resize and format conversion if applicable
-		sharp(filePath)
-			.resize(width, height) // Resize if width or height are provided
-			.toFormat(format) // Convert to specified format or original format
-			.pipe(res); // Send the optimized image directly to the client
+		// Check if the original image exists
+		if (!fs.existsSync(originalFilePath)) {
+			return res.status(404).json({ message: "Original image not found" });
+		}
+
+		// Ensure the transformed directory exists
+		const transformedDir = path.dirname(transformedPath);
+		await fs.promises.mkdir(transformedDir, { recursive: true });
+
+		// Process and save the transformed image
+		await sharp(originalFilePath)
+			.resize(width, height)
+			.toFormat(format, { quality })
+			.toFile(transformedPath);
+
+		// Serve the transformed image
+		res.sendFile(transformedPath);
 	} catch (err) {
 		console.error("Error processing image:", err);
 		return res.status(500).json({ message: "Error processing image" });
 	}
 };
+
 
 export { getImage, sendImage };
