@@ -1,68 +1,184 @@
-# Image Upload and Retrieval System
+# Image Handler System Documentation
 
-## Overview
-This code handles the uploading, saving, and retrieval of user images, as well as the creation of user-specific folders to store these images. It uses the **Prisma ORM** for database interactions and **Sharp** for image processing.
+## Architecture Overview
 
----
+This system follows the Model-View-Controller (MVC) architectural pattern for handling image uploads and user management. The application is built using Node.js with Prisma as the ORM.
 
-## 1. getImage Function (Image Upload)
-This function handles the upload of images for users.
+### Model Layer
 
-- **Path**: `GET /upload/:id`
-- **Parameters**:
-  - `id` (URL parameter): User ID for whom the image is uploaded.
-  - `file` (Multipart form-data): The image file being uploaded.
+The data models are defined using Prisma schema:
 
-### **Steps**:
-1. **User Validation**: It checks if the user exists in the database by their `id`.
-2. **Folder Creation**: Creates a folder for the user in `public/images/users/` if it doesn't already exist.
-3. **Image Upload**: The uploaded image is moved to the user's folder.
-4. **Response**: Sends back a success message with the filename of the uploaded image.
+#### User Model
+```prisma
+model User {
+  id        String      @id @default(uuid())
+  name      String
+  email     String
+  project   String
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  images    Image[]
+}
+```
 
----
+#### Image Model
+```prisma
+model Image {
+  id        String      @id @default(uuid())
+  fileName  String
+  filePath  String
+  userId    String
+  createdAt DateTime    @default(now())
+  user      User        @relation(fields: [userId], references: [id])
+}
+```
 
-## 2. sendImage Function (Image Retrieval)
-This function is responsible for retrieving images based on the user ID and filename, with optional image optimizations.
+### Controller Layer
 
-- **Path**: `GET /image/:id/:fileName`
-- **Parameters**:
-  - `id` (URL parameter): User ID from which the image is to be fetched.
-  - `fileName` (URL parameter): The name of the image file.
-  - `h` (Query parameter, optional): The height to which the image should be resized.
-  - `w` (Query parameter, optional): The width to which the image should be resized.
-  - `f` (Query parameter, optional): The format to which the image should be converted (e.g., JPEG, PNG).
+The system implements two main controllers:
 
-### **Steps**:
-1. **File Path Construction**: It builds the path to the user's image folder.
-2. **File Existence Check**: If the file doesn't exist, it returns a "File not found" error.
-3. **Image Optimizations**: If the query parameters `h`, `w`, or `f` are provided, it resizes and/or converts the image using **Sharp**.
-4. **Image Delivery**: Sends the image back to the client, either in its original or optimized form.
+#### 1. User Controller (`userController.js`)
 
----
+Handles user-related operations including:
+- Creating new users
+- Setting up user-specific image directories
+- Managing user metadata
 
-## 3. createUserAndFolder Function (User Creation with Folder)
-This function creates a new user in the database and generates a folder for them to store images.
+Key Functions:
+- `createUserAndFolder`: Creates a new user and initializes their image storage directory
 
-- **Path**: `POST /user`
-- **Parameters**:
-  - `name` (Request body): The user's name.
-  - `email` (Request body): The user's email.
-  - `project` (Request body): The project associated with the user.
+#### 2. Image Controller (`imageHandler.js`)
 
-### **Steps**:
-1. **User Creation**: It adds a new user to the database using **Prisma**.
-2. **Folder Creation**: Creates a folder for the user in `public/images/users/` using their `id` for the folder name.
-3. **Response**: Returns a success message with the new user's `id`.
+Manages image-related operations including:
+- Image upload handling
+- Image transformation
+- Image serving
 
----
+Key Functions:
+- `getImage`: Handles image upload and storage
+- `sendImage`: Processes and serves images with transformation options
 
-## Additional Notes:
-- **Folder Path**: All user images are stored in `public/images/users/` under a folder named after the user's `id`.
-- **Sharp**: The **Sharp** library is used to handle image resizing and format conversion.
-- **Prisma Client**: This is used to interact with the database for user creation and validation.
+### Directory Structure
 
----
+```
+project-root/
+├── public/
+│   └── images/
+│       └── users/
+│           └── [userId]/
+│               ├── original/
+│               └── transformed/
+```
 
-## Error Handling:
-- If the user is not found during image upload or retrieval, it returns a `404` status with a corresponding error message.
-- If there's any issue with database interaction or folder creation, it returns a `500` status with an error message.
+## Technical Implementation Details
+
+### Image Upload Process
+
+1. **User Verification**
+   - Verifies user existence in database
+   - Checks user permissions
+
+2. **File Storage**
+   - Creates user-specific directories if they don't exist
+   - Generates unique filenames using timestamps
+   - Stores original images in the user's directory
+
+3. **Database Recording**
+   - Records image metadata in the database
+   - Links images to specific users
+
+### Image Transformation Features
+
+The system supports the following image transformations:
+- Resize (width/height)
+- Format conversion
+- Quality adjustment
+
+Query Parameters:
+- `w`: Width in pixels
+- `h`: Height in pixels
+- `f`: Output format
+- `q`: Quality level
+
+### Error Handling
+
+The system implements comprehensive error handling for:
+- User not found scenarios
+- File system operations
+- Image processing failures
+- Database operations
+
+## API Endpoints
+
+### User Management
+```
+POST /api/users
+Body: {
+  name: string,
+  email: string,
+  project: string
+}
+```
+
+### Image Operations
+```
+POST /api/images/:id
+- Uploads an image for a specific user
+
+GET /api/images/:id/:fileName
+Query params:
+- h: height
+- w: width
+- f: format
+- q: quality
+```
+
+## Security Considerations
+
+1. User Authentication
+   - Each request is associated with a specific user ID
+   - Verifies user existence before operations
+
+2. File System Security
+   - Implements user-specific directories
+   - Validates file types and sizes
+   - Uses unique filenames to prevent conflicts
+
+3. Resource Management
+   - Caches transformed images
+   - Implements directory structure for organized storage
+
+## Best Practices Implemented
+
+1. **Separation of Concerns**
+   - Clear separation between models, controllers, and file handling
+   - Modular code structure for maintainability
+
+2. **Efficient Resource Usage**
+   - Caches transformed images
+   - Implements lazy transformation
+
+3. **Error Handling**
+   - Comprehensive error catching and reporting
+   - Appropriate HTTP status codes
+   - Detailed error messages for debugging
+
+4. **Scalability Considerations**
+   - User-specific directory structure
+   - Efficient image transformation caching
+   - Asynchronous operations
+
+## Dependencies
+
+- `sharp`: Image processing
+- `prisma`: Database ORM
+- `fs`: File system operations
+- `path`: Path management
+
+## Future Improvements
+
+1. Implement image validation and sanitization
+2. Add support for batch operations
+3. Implement image optimization strategies
+4. Add support for more image formats
+5. Implement image metadata extraction
