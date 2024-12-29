@@ -19,7 +19,7 @@ const createUserAndFolder = async (req, res) => {
 					project,
 				},
 			});
-		
+			console.log(user)
 
 			// Step 2: Create a folder for the user using the user ID
 			const userFolderPath = path.join(
