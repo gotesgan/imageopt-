@@ -12,13 +12,14 @@ const createUserAndFolder = async (req, res) => {
 	const createUser = async () => {
 		try {
 			// Step 1: Create the user in the database
-			const user = await prisma.User.create({
+			const user =  await prisma.User.create({
 				data: {
 					name,
 					email,
 					project,
 				},
 			});
+			console.log(user)
 
 			// Step 2: Create a folder for the user using the user ID
 			const userFolderPath = path.join(
