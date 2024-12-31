@@ -1,24 +1,20 @@
-import express from "express";
-import dotenv from "dotenv";
-import userRoute from "./routes/userRoutes.js";
-import projectRoute from "./routes/projectRoutes.js"; // Import project routes
-
+import express  from "express";
 const app = express();
-const port = process.env.PORT || 3000;
-
-dotenv.config();
-
-// Middleware for parsing JSON data
-app.use(express.json());
+const port = process.env.port;
+import dotenv from "dotenv";
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static("public"));
-
-// Routes
-app.use("/api/v1/user", userRoute); // User routes
-app.use("/api/v1/project", projectRoute); // Project routes
-
-// Server listen
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+dotenv.config({
+	path: "./.env",
 });
 
+
+app.listen(port, () => {
+	console.log(`Example app listening on port ${port}`);
+});
+
+import imagroute from"./routes/imageRoute.js";
+
+app.use("/api/v1/image",imagroute)
+import userroute from "./routes/userRoutes.js"
+app.use("/api/v1/user", userroute);

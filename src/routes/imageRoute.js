@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { upload } from "../utils/multer.js"; // Assuming your multer setup is correct
-import { getImage, sendImage } from "../model/imageHandler.js";
+import { getImage, sendImage } from "../model/imageHnadler.js"
 
 const router = Router();
 

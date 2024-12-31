@@ -1,10 +1,9 @@
 import { Router } from "express";
-import { createUserAndFolder } from "../model/userHandler.js";
+
+import{ createUserAndFolder} from "../model/userhanderl.js";
 
 const router = Router();
 
-// Route to create a user
 router.route("/create").post(createUserAndFolder);
 
-export default router;
-
+export default router
