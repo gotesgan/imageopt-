@@ -10,16 +10,17 @@ datasource db {
 model User {
   id        String      @id @default(uuid())
   name      String
-  email     String
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  projects  Project[]  // This will allow a user to have multiple projects
+  email     String      @unique
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  projects  Project[]   // A user can have many projects
+  images    Image[]     // A user can have many images
 }
 
 model Project {
   id        String    @id @default(uuid())
   name      String    // Project name
-  userId    String    // Foreign key to the User
+  userId    String    // Foreign key to the User model
   user      User      @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -27,10 +28,9 @@ model Project {
 
 model Image {
   id        String      @id @default(uuid())
-  fileName  String
-  filePath  String
-  userId    String
-  createdAt DateTime   @default(now())
+  fileName  String      // Name of the image
+  filePath  String      // Path to the image file
+  userId    String      // Foreign key to the User model
+  createdAt DateTime    @default(now())
   user      User        @relation(fields: [userId], references: [id])
 }
-
