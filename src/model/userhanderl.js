@@ -4,50 +4,90 @@ import path from "path";
 
 const prisma = new PrismaClient();
 
+// Function to create a user and their associated folder structure
 const createUserAndFolder = async (req, res) => {
-	// Extract user information from the request body
-	const { name, email, project } = req.body;
+  const { name, email } = req.body;
 
-	// Create an anonymous function to handle the user creation and folder creation logic
-	const createUser = async () => {
-		try {
-			// Step 1: Create the user in the database
-			const user =  await prisma.User.create({
-				data: {
-					name,
-					email,
-					project,
-				},
-			});
-		
-			// Sep 2: Create a folder for the user using the user ID
-			log.console(user)
-			const userFolderPath = path.join(
-				process.cwd(),
-				"public",
-				"images",
-				"users",
-				`${user.id}` // Fixing the backtick and string interpolation
-			);
+  try {
+    // Step 1: Create the user in the database
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+      },
+    });
 
-			// Check if the folder already exists
-			if (!fs.existsSync(userFolderPath)) {
-				fs.mkdirSync(userFolderPath, { recursive: true }); // Create folder recursively
-			}
+    // Step 2: Create the user's base folder
+    const userFolderPath = path.join(
+      process.cwd(),
+      "public",
+      "images",
+      "users",
+      `${user.id}`
+    );
 
-			// Step 3: Return the user ID in the response
-			res.status(201).json({
-				message: "User created successfully",
-				userId: user.id,
-			});
-		} catch (error) {
-			console.error("Error creating user and folder:", error);
-			res.status(500).json({ message: "Error creating user and folder" });
-		}
-	};
+    if (!fs.existsSync(userFolderPath)) {
+      fs.mkdirSync(userFolderPath, { recursive: true });
+    }
 
-	// Execute the anonymous function
-	createUser();
+    // Step 3: Return the user ID
+    res.status(201).json({
+      message: "User created successfully",
+      userId: user.id,
+    });
+  } catch (error) {
+    console.error("Error creating user and folder:", error);
+    res.status(500).json({ message: "Error creating user and folder" });
+  }
 };
 
-export default createUserAndFolder;
+// Function to create a project and associated folders
+const createProject = async (req, res) => {
+  const { userId, projectName } = req.body;
+
+  try {
+    // Step 1: Create the project in the database
+    const project = await prisma.project.create({
+      data: {
+        name: projectName,
+        userId, // Link the project to the user
+      },
+    });
+
+    // Step 2: Create folders for the project
+    const projectFolderPath = path.join(
+      process.cwd(),
+      "public",
+      "images",
+      "users",
+      `${userId}`,
+      `${project.id}`
+    );
+
+    const originalFolderPath = path.join(projectFolderPath, "original");
+    const transformedFolderPath = path.join(projectFolderPath, "transformed");
+
+    // Create folders if they don't already exist
+    if (!fs.existsSync(originalFolderPath)) {
+      fs.mkdirSync(originalFolderPath, { recursive: true });
+    }
+
+    if (!fs.existsSync(transformedFolderPath)) {
+      fs.mkdirSync(transformedFolderPath, { recursive: true });
+    }
+
+    // Step 3: Return project details
+    res.status(201).json({
+      message: "Project created successfully",
+      projectId: project.id,
+      projectName: project.name,
+      userId: userId,
+    });
+  } catch (error) {
+    console.error("Error creating project and folders:", error);
+    res.status(500).json({ message: "Error creating project and folders" });
+  }
+};
+
+export { createUserAndFolder, createProject };
+

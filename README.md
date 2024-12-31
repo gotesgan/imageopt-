@@ -1,184 +1,221 @@
-# Image Handler System Documentation
+### Documentation for the Project
 
-## Architecture Overview
+---
 
-This system follows the Model-View-Controller (MVC) architectural pattern for handling image uploads and user management. The application is built using Node.js with Prisma as the ORM.
+### **1. Overview**
+This project is designed to handle user registration, project creation, and image management using Prisma as the ORM for database interactions, Express.js for the web server, and Sharp for image transformation. The application manages users, their associated projects, and image uploads, storing original and transformed images in a structured folder system.
 
-### Model Layer
+---
 
-The data models are defined using Prisma schema:
+### **2. Key Features**
+1. **User Creation**: Create a user and set up a folder structure for storing images.
+2. **Project Creation**: Allow users to create projects, which also create associated folders for storing images related to each project.
+3. **Image Upload & Transformation**: Users can upload images, which are stored in specific project folders. The images can also be transformed (resized, formatted) before being served.
+4. **Image Retrieval**: Retrieve original or transformed images with dynamic parameters (like width, height, format, and quality).
 
-#### User Model
-```prisma
-model User {
-  id        String      @id @default(uuid())
-  name      String
-  email     String
-  project   String
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  images    Image[]
-}
-```
+---
 
-#### Image Model
-```prisma
-model Image {
-  id        String      @id @default(uuid())
-  fileName  String
-  filePath  String
-  userId    String
-  createdAt DateTime    @default(now())
-  user      User        @relation(fields: [userId], references: [id])
-}
-```
+### **3. Technologies Used**
+- **Backend**: 
+  - Express.js
+  - Prisma ORM
+  - Multer for handling file uploads
+  - Sharp for image transformations
+- **Database**: PostgreSQL (via Prisma Client)
+- **File Storage**: Local disk storage
+- **File Format**: JPEG, PNG, and other formats supported by Sharp
 
-### Controller Layer
+---
 
-The system implements two main controllers:
-
-#### 1. User Controller (`userController.js`)
-
-Handles user-related operations including:
-- Creating new users
-- Setting up user-specific image directories
-- Managing user metadata
-
-Key Functions:
-- `createUserAndFolder`: Creates a new user and initializes their image storage directory
-
-#### 2. Image Controller (`imageHandler.js`)
-
-Manages image-related operations including:
-- Image upload handling
-- Image transformation
-- Image serving
-
-Key Functions:
-- `getImage`: Handles image upload and storage
-- `sendImage`: Processes and serves images with transformation options
-
-### Directory Structure
-
-```
-project-root/
+### **4. Project Structure**
+```bash
+/
 ├── public/
 │   └── images/
 │       └── users/
-│           └── [userId]/
-│               ├── original/
-│               └── transformed/
+│           └── <user_id>/
+│               └── <project_id>/
+│                   └── original/
+│                   └── transformed/
+├── src/
+│   ├── routes/
+│   │   ├── userRoutes.js
+│   │   ├── projectRoutes.js
+│   │   └── imageRoutes.js
+│   ├── model/
+│   │   ├── userHandler.js
+│   │   └── imageHandler.js
+│   ├── server.js
+│   └── utils/
+│       └── multer.js
+├── .env
+├── prisma/
+│   └── schema.prisma
+└── package.json
 ```
 
-## Technical Implementation Details
+---
 
-### Image Upload Process
+### **5. API Endpoints**
 
-1. **User Verification**
-   - Verifies user existence in database
-   - Checks user permissions
+#### 5.1. **Create User**
+- **Endpoint**: `POST /api/v1/user/create`
+- **Description**: Creates a new user and sets up a folder for storing project-related images.
+- **Request Body**:
+  ```json
+  {
+    "name": "John Doe",
+    "email": "john.doe@example.com"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "message": "User created successfully",
+    "userId": "<user_id>"
+  }
+  ```
 
-2. **File Storage**
-   - Creates user-specific directories if they don't exist
-   - Generates unique filenames using timestamps
-   - Stores original images in the user's directory
+#### 5.2. **Create Project**
+- **Endpoint**: `POST /api/v1/project/create`
+- **Description**: Creates a new project for a user and sets up the corresponding project folders.
+- **Request Body**:
+  ```json
+  {
+    "userId": "<user_id>",
+    "projectName": "Project X"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "message": "Project created successfully",
+    "projectId": "<project_id>",
+    "projectName": "Project X",
+    "userId": "<user_id>"
+  }
+  ```
 
-3. **Database Recording**
-   - Records image metadata in the database
-   - Links images to specific users
+#### 5.3. **Upload Image**
+- **Endpoint**: `POST /api/v1/image/upload/:userId/:projectName`
+- **Description**: Uploads an image for a specific project. The image is saved in the "original" folder of the project.
+- **Request**: Form-data (multipart) with a file field named `file`.
+- **Response**:
+  ```json
+  {
+    "message": "Image uploaded successfully",
+    "filename": "<unique_file_name>"
+  }
+  ```
 
-### Image Transformation Features
+#### 5.4. **Download Image**
+- **Endpoint**: `GET /api/v1/image/download/:userId/:projectName/:fileName`
+- **Description**: Downloads a transformed image (if applicable) or the original image, applying any requested transformations (resize, format change, quality adjustments).
+- **Query Parameters**:
+  - `w`: Width of the image
+  - `h`: Height of the image
+  - `f`: Format (e.g., "jpeg", "png")
+  - `q`: Quality (1-100)
+- **Response**: Image file (downloadable).
 
-The system supports the following image transformations:
-- Resize (width/height)
-- Format conversion
-- Quality adjustment
+---
 
-Query Parameters:
-- `w`: Width in pixels
-- `h`: Height in pixels
-- `f`: Output format
-- `q`: Quality level
+### **6. Detailed Flow**
 
-### Error Handling
+#### 6.1. **User Creation Flow**
+1. A `POST` request is sent to `/api/v1/user/create` with user details (name and email).
+2. The server creates a user entry in the database via Prisma.
+3. A folder is created on the server under `public/images/users/<user_id>`, where all the user's project-related images will be stored.
+4. The user is returned with a success message and their unique user ID.
 
-The system implements comprehensive error handling for:
-- User not found scenarios
-- File system operations
-- Image processing failures
-- Database operations
+#### 6.2. **Project Creation Flow**
+1. A `POST` request is sent to `/api/v1/project/create` with the user ID and project name.
+2. The server creates a project entry in the database.
+3. Folders are created for the project under `public/images/users/<user_id>/<project_id>/original` and `transformed`.
+4. The project is returned with a success message and project details.
 
-## API Endpoints
+#### 6.3. **Image Upload Flow**
+1. A `POST` request is sent to `/api/v1/image/upload/:userId/:projectName`, with the image as a file (using form-data).
+2. The server checks if the user exists in the database.
+3. The image is saved in the `original` folder of the project.
+4. The file is renamed to avoid conflicts and to ensure uniqueness.
+5. The image metadata (file name and path) is stored in the database.
 
-### User Management
-```
-POST /api/users
-Body: {
-  name: string,
-  email: string,
-  project: string
+#### 6.4. **Image Download and Transformation Flow**
+1. A `GET` request is sent to `/api/v1/image/download/:userId/:projectName/:fileName`, with query parameters for transformations (width, height, format, quality).
+2. The server checks if the original image exists.
+3. If the image needs to be transformed, the Sharp library processes the image based on the query parameters.
+4. The transformed image is saved in the `transformed` folder.
+5. The image is served to the client for download.
+
+---
+
+### **7. Database Schema (Prisma)**
+
+#### 7.1. **User Model**
+```prisma
+model User {
+  id        String    @id @default(uuid())
+  name      String
+  email     String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  projects  Project[]
 }
 ```
+- **id**: Unique identifier for the user.
+- **name**: User's name.
+- **email**: Unique email address of the user.
+- **projects**: Relation to the Project model.
 
-### Image Operations
+#### 7.2. **Project Model**
+```prisma
+model Project {
+  id        String   @id @default(uuid())
+  name      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
 ```
-POST /api/images/:id
-- Uploads an image for a specific user
+- **id**: Unique identifier for the project.
+- **name**: Project name.
+- **userId**: Foreign key to the User model.
+- **user**: Relation to the User model.
 
-GET /api/images/:id/:fileName
-Query params:
-- h: height
-- w: width
-- f: format
-- q: quality
+#### 7.3. **Image Model**
+```prisma
+model Image {
+  id        String    @id @default(uuid())
+  fileName  String
+  filePath  String
+  userId    String
+  createdAt DateTime @default(now())
+  user      User      @relation(fields: [userId], references: [id])
+}
+```
+- **id**: Unique identifier for the image.
+- **fileName**: The name of the image file.
+- **filePath**: The path where the image is stored.
+- **userId**: Foreign key to the User model.
+- **user**: Relation to the User model.
+
+---
+
+### **8. Environment Variables**
+
+Ensure that the `.env` file contains the following environment variables:
+
+```
+DATABASE_URL=your_database_url
+PORT=3000
 ```
 
-## Security Considerations
+---
 
-1. User Authentication
-   - Each request is associated with a specific user ID
-   - Verifies user existence before operations
+### **9. Conclusion**
 
-2. File System Security
-   - Implements user-specific directories
-   - Validates file types and sizes
-   - Uses unique filenames to prevent conflicts
+This documentation provides a detailed overview of the user, project, and image management system built using Express.js, Prisma, and Sharp. The flow ensures that images are uploaded, stored, and transformed according to user specifications. By utilizing Prisma for database interactions and implementing a file system for image storage, the application offers an efficient solution for managing user data, projects, and images in a structured manner.
 
-3. Resource Management
-   - Caches transformed images
-   - Implements directory structure for organized storage
 
-## Best Practices Implemented
-
-1. **Separation of Concerns**
-   - Clear separation between models, controllers, and file handling
-   - Modular code structure for maintainability
-
-2. **Efficient Resource Usage**
-   - Caches transformed images
-   - Implements lazy transformation
-
-3. **Error Handling**
-   - Comprehensive error catching and reporting
-   - Appropriate HTTP status codes
-   - Detailed error messages for debugging
-
-4. **Scalability Considerations**
-   - User-specific directory structure
-   - Efficient image transformation caching
-   - Asynchronous operations
-
-## Dependencies
-
-- `sharp`: Image processing
-- `prisma`: Database ORM
-- `fs`: File system operations
-- `path`: Path management
-
-## Future Improvements
-
-1. Implement image validation and sanitization
-2. Add support for batch operations
-3. Implement image optimization strategies
-4. Add support for more image formats
-5. Implement image metadata extraction
