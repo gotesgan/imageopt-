@@ -65,7 +65,7 @@ const getImage = async (req, res) => {
 // Function to handle image retrieval and transformation
 const sendImage = async (req, res) => {
     const { userId, projectName, fileName } = req.params;
-    const { h, w, f, q } = req.query;
+    const { h, w, f, q, rotate, delete: deleteParam, expire } = req.query; // Added expire query param
 
     const originalFilePath = path.join(
         process.cwd(),
@@ -103,6 +103,66 @@ const sendImage = async (req, res) => {
     );
 
     try {
+        // Handle expiration if 'expire' query parameter is passed
+        if (expire) {
+            const expireTime = parseInt(expire, 10);
+            if (!isNaN(expireTime) && expireTime > 0) {
+                const expirationDate = new Date(Date.now() - expireTime * 60 * 60 * 1000); // Expire in hours
+
+                // Expire original image if 'o' is passed
+                if (deleteParam === 'o' || deleteParam === 'both') {
+                    const statsOriginal = await fs.promises.stat(originalFilePath).catch(() => null);
+                    if (statsOriginal && statsOriginal.mtime < expirationDate) {
+                        await fs.promises.unlink(originalFilePath);
+                        return res.status(410).json({ message: "Original image has expired and has been deleted" });
+                    }
+                }
+
+                // Expire transformed image if 't' is passed
+                if (deleteParam === 't' || deleteParam === 'both') {
+                    const statsTransformed = await fs.promises.stat(transformedPath).catch(() => null);
+                    if (statsTransformed && statsTransformed.mtime < expirationDate) {
+                        await fs.promises.unlink(transformedPath);
+                        return res.status(410).json({ message: "Transformed image has expired and has been deleted" });
+                    }
+                }
+            } else {
+                return res.status(400).json({ message: "Invalid expire time" });
+            }
+        }
+
+        // Handle deletion if 'delete' query parameter is passed
+        if (deleteParam === 'original') {
+            if (fs.existsSync(originalFilePath)) {
+                await fs.promises.unlink(originalFilePath);
+                return res.status(200).json({ message: "Original image deleted successfully" });
+            } else {
+                return res.status(404).json({ message: "Original image not found" });
+            }
+        }
+
+        if (deleteParam === 'transformed') {
+            if (fs.existsSync(transformedPath)) {
+                await fs.promises.unlink(transformedPath);
+                return res.status(200).json({ message: "Transformed image deleted successfully" });
+            } else {
+                return res.status(404).json({ message: "Transformed image not found" });
+            }
+        }
+
+        // Handle transformation and serving image if 'rotate' query parameter is passed
+        let image = sharp(originalFilePath);
+
+        // If rotate is provided, apply rotation
+        if (rotate) {
+            const rotationAngle = parseInt(rotate, 10);
+            if (!isNaN(rotationAngle)) {
+                image = image.rotate(rotationAngle);
+            } else {
+                return res.status(400).json({ message: "Invalid rotate angle" });
+            }
+        }
+
         // Check if the transformed image already exists
         if (await fs.promises.stat(transformedPath).catch(() => false)) {
             return res.sendFile(transformedPath);
@@ -117,8 +177,8 @@ const sendImage = async (req, res) => {
         const transformedDir = path.dirname(transformedPath);
         await fs.promises.mkdir(transformedDir, { recursive: true });
 
-        // Process and save the transformed image
-        await sharp(originalFilePath)
+        // Apply resizing, format conversion, and quality settings
+        await image
             .resize(width, height)
             .toFormat(format, { quality })
             .toFile(transformedPath);
@@ -130,6 +190,7 @@ const sendImage = async (req, res) => {
         return res.status(500).json({ message: "Error processing image" });
     }
 };
+
 
 export { getImage, sendImage };
 

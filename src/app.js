@@ -18,3 +18,5 @@ import imagroute from"./routes/imageRoute.js";
 app.use("/api/v1/image",imagroute)
 import userroute from "./routes/userRoutes.js"
 app.use("/api/v1/user", userroute);
+import projectroute from "./routes/projectRoutes.js"
+app.use("/api/v1/project", projectroute);

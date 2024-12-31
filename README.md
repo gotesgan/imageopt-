@@ -1,9 +1,6 @@
-### Documentation for the Project
-
----
 
 ### **1. Overview**
-This project is designed to handle user registration, project creation, and image management using Prisma as the ORM for database interactions, Express.js for the web server, and Sharp for image transformation. The application manages users, their associated projects, and image uploads, storing original and transformed images in a structured folder system.
+This project is designed to handle user registration, project creation, and image management using Prisma as the ORM for database interactions, Express.js for the web server, and Sharp for image transformation. The application manages users, their associated projects, and image uploads, storing both original and transformed images in a structured folder system.
 
 ---
 
@@ -11,7 +8,7 @@ This project is designed to handle user registration, project creation, and imag
 1. **User Creation**: Create a user and set up a folder structure for storing images.
 2. **Project Creation**: Allow users to create projects, which also create associated folders for storing images related to each project.
 3. **Image Upload & Transformation**: Users can upload images, which are stored in specific project folders. The images can also be transformed (resized, formatted) before being served.
-4. **Image Retrieval**: Retrieve original or transformed images with dynamic parameters (like width, height, format, and quality).
+4. **Image Retrieval**: Retrieve either original or transformed images with dynamic parameters (like width, height, format, and quality).
 
 ---
 
@@ -218,4 +215,6 @@ PORT=3000
 
 This documentation provides a detailed overview of the user, project, and image management system built using Express.js, Prisma, and Sharp. The flow ensures that images are uploaded, stored, and transformed according to user specifications. By utilizing Prisma for database interactions and implementing a file system for image storage, the application offers an efficient solution for managing user data, projects, and images in a structured manner.
 
+--- 
 
+T

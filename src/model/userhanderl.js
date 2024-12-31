@@ -43,7 +43,7 @@ const createUserAndFolder = async (req, res) => {
 
 // Function to create a project and associated folders
 const createProject = async (req, res) => {
-  const { userId, projectName } = req.body;
+  const { userId, projectName } = req.para;
 
   try {
     // Step 1: Create the project in the database
