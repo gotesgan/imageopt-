@@ -3,9 +3,8 @@ import fs from "fs";
 import { PrismaClient } from "@prisma/client";
 import sharp from "sharp";
 
-const prisma = new PrismaClient();
 
-// Function to handle image upload and log the file name
+
 const getImage = async (req, res) => {
     const { userId, projectName } = req.params;
     const image = req.file;
@@ -36,22 +35,35 @@ const getImage = async (req, res) => {
             fs.mkdirSync(originalFolderPath, { recursive: true });
         }
 
-        // Step 3: Create a unique filename and move the uploaded image
+        // Step 3: Create a unique filename
         const uniqueFileName = `${Date.now()}-${image.originalname}`;
-        const newImagePath = path.join(originalFolderPath, uniqueFileName);
+        const originalImagePath = path.join(originalFolderPath, uniqueFileName);
 
-        fs.renameSync(image.path, newImagePath);
+        // Step 4: Check if the image is oversized (e.g., over 5MB)
+        const metadata = await sharp(image.path).metadata();
+        const imageSizeThreshold = 5 * 1024 * 1024; // 5MB in bytes
 
-        // Step 4: Save the image reference in the database
+        if (metadata.size > imageSizeThreshold) {
+            // Optimize the image by resizing and compressing
+            await sharp(image.path)
+                .resize({ width: 1200 }) // Resize to a max width (adjust as necessary)
+                .jpeg({ quality: 80 }) // Compress to JPEG with 80% quality
+                .toFile(originalImagePath); // Save the optimized image
+        } else {
+            // Move the original image if it's not oversized
+            fs.renameSync(image.path, originalImagePath);
+        }
+
+        // Step 5: Save the image reference in the database
         await prisma.Image.create({
             data: {
                 fileName: uniqueFileName,
-                filePath: newImagePath,
+                filePath: originalImagePath,
                 userId: user.id,
             },
         });
 
-        // Step 5: Send a response with the image details
+        // Step 6: Send a response with the image details
         res.status(200).json({
             message: "Image uploaded successfully",
             filename: uniqueFileName,
@@ -61,6 +73,7 @@ const getImage = async (req, res) => {
         return res.status(500).json({ message: "Error uploading image" });
     }
 };
+
 
 // Function to handle image retrieval and transformation
 const sendImage = async (req, res) => {
