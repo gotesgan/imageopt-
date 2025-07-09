@@ -76,7 +76,7 @@ This project is designed to handle user registration, project creation, and imag
 #### 5.2. **Create Project**
 - **Endpoint**: `POST /api/v1/project/create`
 - **Description**: Creates a new project for a user and sets up the corresponding project folders.
-- **Request Body**:
+- **Request query**:
   ```json
   {
     "userId": "<user_id>",
